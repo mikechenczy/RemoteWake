@@ -27,7 +27,7 @@
             xhr.onreadystatechange = function() {
             if (xhr.readyState === 4 && xhr.status === 200) {
                 console.log(xhr.responseText);
-                if(xhr.responseText.indexOf('0')==-1) {
+                if(xhr.responseText.indexOf('0')!=-1) {
                     document.getElementById("status-close").style.display = 'unset';
                     document.getElementById("status-open").style.display = 'none';
                 } else {
@@ -63,7 +63,7 @@
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4 && xhr.status === 200) {
                     console.log(xhr.responseText);
-                    if(xhr.responseText.indexOf('0')==-1) {
+                    if(xhr.responseText.indexOf('0')!=-1) {
                         document.getElementById("status-close").style.display = 'unset';
                         document.getElementById("status-open").style.display = 'none';
                     } else {
