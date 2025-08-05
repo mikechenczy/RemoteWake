@@ -1,6 +1,10 @@
 <!DOCTYPE html>
+<html lang='en'>
 <head>
-    <title>远程唤醒&远程开关&远程ping</title>
+	<meta charset='UTF-8'>
+	<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+	<title>远程唤醒&远程开关&远程ping</title>
+</head>
 </head>
 <body>
     <div>
@@ -20,8 +24,9 @@
         <t id="status-failed" style="color: red;display: none;">失败</t>
         <t id="status-success" style="color: green;display: none;">成功</t>
     </div>
+	<button onclick="location.href='reset'">RESET进入配网模式</button>
     <script>
-        let baseUrl = "/esp/"
+        let baseUrl = ""
         var xhr = new XMLHttpRequest();
             xhr.open('GET', baseUrl+"status", true);
             xhr.onreadystatechange = function() {
