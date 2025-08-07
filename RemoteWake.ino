@@ -137,7 +137,7 @@ void handleRoot() {//访问主页回调函数
         <textarea type='text' name='secondaryDNS'>")+secondaryDNS.toString()+String("</textarea><br>\r\n\
         端口:<br>\r\n\
         <textarea type='text' name='port'>")+port+String("</textarea><br>\r\n\
-        mode(github/ddns): <br>\r\n\
+        mode(github/ddns/off): <br>\r\n\
         <textarea type='text' name='mode'>")+mode+String("</textarea><br>\r\n\
         repo/zoneId:<br>\r\n\
         <textarea type='text' name='repo'>")+repo+String("</textarea><br>\r\n\
@@ -454,6 +454,8 @@ void connectNewWiFi(){
   }
 }
 ESP8266WebServer* esp8266_server = new ESP8266WebServer(80);
+bool lastSuccess = false;
+String lastIp = "";
 
 void updateFile(String content, String sha) {
   WiFiClientSecure client;
@@ -467,10 +469,12 @@ void updateFile(String content, String sha) {
   if (httpResponseCode>0) {
     String response = http.getString();   
     Serial.println(httpResponseCode);
-    Serial.println(response);          
+    Serial.println(response);
+    lastSuccess = true;
    } else {
     Serial.print("Error on sending PUT Request: ");
     Serial.println(httpResponseCode);
+    lastSuccess = false;
    }
    http.end();
 }
@@ -561,11 +565,13 @@ void updateDns(String ipv6) {
     String response = http.getString();   
     Serial.println(httpResponseCode);
     Serial.println(response);
+    lastSuccess = true;
     http.end();
     return;
   } else {
-    Serial.print("Error on sending GET Request: ");
+    Serial.print("Error on sending PUT Request: ");
     Serial.println(httpResponseCode);
+    lastSuccess = false;
   }
   http.end();
 }
@@ -573,6 +579,9 @@ void updateDns(String ipv6) {
 int lastMillis = -100000;
 
 void updateIp() {
+  if(mode.compareTo("off")==0) {
+    return;
+  }
   if(WiFi.status() != WL_CONNECTED) {
     return;
   }
@@ -589,6 +598,10 @@ void updateIp() {
     Serial.println(a.toString().startsWith("2"));
     Serial.println(a.toString().c_str());
     if(a.isV6() && a.toString().startsWith("2")) {
+      if(a.toString().compareTo(lastIp)==0 && lastSuccess) {
+        break;
+      }
+      lastIp = a.toString();
       if(mode.compareTo("github")!=0) {
         updateDns(a.toString());
         break;
@@ -688,8 +701,8 @@ void handleTemplate() {
                 "        <button onclick=\"wake()\">唤醒</button>\n" +
                 "    </div>\n" +
                 "    <div>\n" +
-                "        <t id=\"status-close\" style=\"color: red\">关闭</t>\n" +
-                "        <t id=\"status-open\" style=\"color: green\">开启</t>\n" +
+                "        <t id=\"status-close\" style=\"color: red"+(toggled?";display: none":"")+"\">关闭</t>\n" +
+                "        <t id=\"status-open\" style=\"color: green"+(toggled?"":";display: none")+"\">开启</t>\n" +
                 "        <button onclick=\"toggle()\">开启/关闭开关</button>\n" +
                 "    </div>\n" +
                 "    <div>\n" +
@@ -701,25 +714,8 @@ void handleTemplate() {
                 "    <button onclick=\"location.href='reset'\">RESET进入配网模式</buttton>\n" +
                 "    <script>\n" +
                 "        let baseUrl = \"\"\n" +
-                "        var xhr = new XMLHttpRequest();\n" +
-                "            xhr.open('GET', baseUrl+\"status\", true);\n" +
-                "            xhr.onreadystatechange = function() {\n" +
-                "            if (xhr.readyState === 4 && xhr.status === 200) {\n" +
-                "                console.log(xhr.responseText);\n" +
-                "                if(xhr.responseText.indexOf('0')!=-1) {\n" +
-                "                    document.getElementById(\"status-close\").style.display = 'unset';\n" +
-                "                    document.getElementById(\"status-open\").style.display = 'none';\n" +
-                "                } else {\n" +
-                "                    document.getElementById(\"status-close\").style.display = 'none';\n" +
-                "                    document.getElementById(\"status-open\").style.display = 'unset';\n" +
-                "                }\n" +
-                "            }\n" +
-                "        };\n" +
-                "        xhr.send();\n" +
                 "        function macAddressToIntArray(macAddress) {\n" +
-                "            // 使用正则表达式匹配MAC地址中的十六进制数\n" +
                 "            let hexArray = macAddress.match(/[0-9a-fA-F]{2}/g);\n" +
-                "            // 将十六进制数字转换为整数数组\n" +
                 "            let intArray = hexArray.map(hex => parseInt(hex, 16));\n" +
                 "            return intArray;\n" +
                 "        }\n" +

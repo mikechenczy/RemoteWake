@@ -27,25 +27,8 @@
 	<button onclick="location.href='reset'">RESET进入配网模式</button>
     <script>
         let baseUrl = ""
-        var xhr = new XMLHttpRequest();
-            xhr.open('GET', baseUrl+"status", true);
-            xhr.onreadystatechange = function() {
-            if (xhr.readyState === 4 && xhr.status === 200) {
-                console.log(xhr.responseText);
-                if(xhr.responseText.indexOf('0')!=-1) {
-                    document.getElementById("status-close").style.display = 'unset';
-                    document.getElementById("status-open").style.display = 'none';
-                } else {
-                    document.getElementById("status-close").style.display = 'none';
-                    document.getElementById("status-open").style.display = 'unset';
-                }
-            }
-        };
-        xhr.send();
         function macAddressToIntArray(macAddress) {
-            // 使用正则表达式匹配MAC地址中的十六进制数
             let hexArray = macAddress.match(/[0-9a-fA-F]{2}/g);
-            // 将十六进制数字转换为整数数组
             let intArray = hexArray.map(hex => parseInt(hex, 16));
             return intArray;
         }
