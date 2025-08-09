@@ -1,86 +1,92 @@
 <!DOCTYPE html>
 <html lang='en'>
 <head>
-	<meta charset='UTF-8'>
-	<meta name='viewport' content='width=device-width, initial-scale=1.0'>
-	<title>远程唤醒&远程开关&远程ping</title>
-</head>
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+<title>远程唤醒&远程开关&远程ping v%VERSION%</title>
 </head>
 <body>
-    <div>
-        <input id="wakeText">
-    
-        </input>
-        <button onclick="wake()">唤醒</button>
-    </div>
-    <div>
-        <t id="status-close" style="color: red">关闭</t>
-        <t id="status-open" style="color: green">开启</t>
-        <button onclick="toggle()">开启/关闭开关</button>
-    </div>
-    <div>
-        <input id="pingText"/>
-        <button onclick="ping()">Ping</button>
-        <t id="status-failed" style="color: red;display: none;">失败</t>
-        <t id="status-success" style="color: green;display: none;">成功</t>
-    </div>
-	<button onclick="location.href='reset'">RESET进入配网模式</button>
-    <script>
-        let baseUrl = ""
-        function macAddressToIntArray(macAddress) {
-            let hexArray = macAddress.match(/[0-9a-fA-F]{2}/g);
-            let intArray = hexArray.map(hex => parseInt(hex, 16));
-            return intArray;
+<h2>v%VERSION%</h2>
+<div>
+  <input id="wakeText" />
+  <button onclick="wake()">唤醒</button>
+</div>
+<div>
+  <t id="status-close" style="color: red%DISPLAY1%">关闭</t>
+  <t id="status-open" style="color: green%DISPLAY2%">开启</t>
+  <button onclick="toggle()">开启/关闭开关</button>
+</div>
+<div>
+  <input id="pingText" />
+  <button onclick="ping()">Ping</button>
+  <t id="status-failed" style="color: red; display: none;">失败</t>
+  <t id="status-success" style="color: green; display: none;">成功</t>
+</div>
+<button onclick="location.href='config'">配置参数</button>
+<button onclick="window.open('update', '_blank')">固件更新</button>
+<button onclick="window.open('reset', '_blank')">RESET进入配网模式</button>
+<script>
+  let baseUrl = "";
+
+  function macAddressToIntArray(macAddress) {
+    let hexArray = macAddress.match(/[0-9a-fA-F]{2}/g);
+    let intArray = hexArray.map(hex => parseInt(hex, 16));
+    return intArray;
+  }
+
+  function wake() {
+    var mac = document.getElementById("wakeText").value.replace(/[-:]/g, '');
+    console.info(mac);
+    var m = macAddressToIntArray(mac);
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', baseUrl + "wake?ip=255.255.255.255&port=9&mac_1=" + m[0] + "&mac_2=" + m[1] + "&mac_3=" + m[2] + "&mac_4=" + m[3] + "&mac_5=" + m[4] + "&mac_6=" + m[5], true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        console.log(xhr.responseText);
+      }
+    };
+    xhr.send();
+  }
+
+  function toggle() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', baseUrl + "toggle", true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        console.log(xhr.responseText);
+        if(xhr.responseText.indexOf('0') != -1) {
+          document.getElementById("status-close").style.display = 'unset';
+          document.getElementById("status-open").style.display = 'none';
+        } else {
+          document.getElementById("status-close").style.display = 'none';
+          document.getElementById("status-open").style.display = 'unset';
         }
-        function wake() {
-            var mac = document.getElementById("wakeText").value.replaceAll('-', '').replaceAll(':', '');
-            console.info(mac);
-            var m = macAddressToIntArray(mac);
-            var xhr = new XMLHttpRequest();
-            xhr.open('GET', baseUrl+"wake?ip=255.255.255.255&port=9&mac_1="+m[0]+"&mac_2="+m[1]+"&mac_3="+m[2]+"&mac_4="+m[3]+"&mac_5="+m[4]+"&mac_6="+m[5], true);
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === 4 && xhr.status === 200) {
-                    console.log(xhr.responseText);
-                }
-            };
-            xhr.send();
+      }
+    };
+    xhr.send();
+  }
+
+  function ping() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', baseUrl + "ping?ip=" + document.getElementById("pingText").value, true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        console.log(xhr.responseText);
+        if(xhr.responseText.indexOf('false') != -1) {
+          document.getElementById("status-failed").style.display = 'unset';
+          document.getElementById("status-success").style.display = 'none';
+        } else {
+          document.getElementById("status-failed").style.display = 'none';
+          document.getElementById("status-success").style.display = 'unset';
         }
-        function toggle() {
-            var xhr = new XMLHttpRequest();
-            xhr.open('GET', baseUrl+"toggle", true);
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === 4 && xhr.status === 200) {
-                    console.log(xhr.responseText);
-                    if(xhr.responseText.indexOf('0')!=-1) {
-                        document.getElementById("status-close").style.display = 'unset';
-                        document.getElementById("status-open").style.display = 'none';
-                    } else {
-                        document.getElementById("status-close").style.display = 'none';
-                        document.getElementById("status-open").style.display = 'unset';
-                    }
-                }
-            };
-            xhr.send();
-        }
-        function ping() {
-            var xhr = new XMLHttpRequest();
-            xhr.open('GET', baseUrl+"ping?ip="+document.getElementById("pingText").value, true);
-            xhr.onreadystatechange = function() {
-                if (xhr.readyState === 4 && xhr.status === 200) {
-                    console.log(xhr.responseText);
-                    if(xhr.responseText.indexOf('false')!=-1) {
-                        document.getElementById("status-failed").style.display = 'unset';
-                        document.getElementById("status-success").style.display = 'none';
-                    } else {
-                        document.getElementById("status-failed").style.display = 'none';
-                        document.getElementById("status-success").style.display = 'unset';
-                    }
-                }
-            };
-            xhr.send();
-        }
-        function hexToDecimal(hexString) {
+      }
+    };
+    xhr.send();
+  }
+
+  function hexToDecimal(hexString) {
     return parseInt(hexString, 16);
-}
-    </script>
+  }
+</script>
 </body>
+</html>

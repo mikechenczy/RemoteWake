@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <ESP8266Ping.h>
 #include <ESP8266HTTPClient.h>
+#include <ESP8266httpUpdate.h>
 #include <ESP8266WiFi.h>
 #include <AddrList.h>
 #include <DNSServer.h>
@@ -13,21 +14,23 @@
 
 EEPROM_Rotate EEPROMr;
 
-const int SISSD_ADDR = 10;
-const int WIFI_MODE_ADDR = 43;
-const int LOCAL_IP_ADDR = 60;
-const int GATEWAY_ADDR = 64;
-const int SUBNET_ADDR = 68;
-const int PRIMARY_DNS_ADDR = 72;
-const int SECONDARY_DNS_ADDR = 76;
-const int PASSWORD_ADDR = 100;
-const int PORT_ADDR = 150;
-const int MODE_ADDR = 160;
-const int REPO_ADDR = 300;
-const int FILE_ADDR = 350;
-const int GITHUB_TOKEN_ADDR = 400;
-const int BEFORE_IP_STRING_ADDR = 500;
-const int AFTER_IP_STRING_ADDR = 1500;
+const int SISSD_ADDR = 300;
+const int WIFI_MODE_ADDR = 333;
+const int LOCAL_IP_ADDR = 350;
+const int GATEWAY_ADDR = 354;
+const int SUBNET_ADDR = 358;
+const int PRIMARY_DNS_ADDR = 362;
+const int SECONDARY_DNS_ADDR = 366;
+const int PASSWORD_ADDR = 390;
+const int PORT_ADDR = 440;
+const int MODE_ADDR = 450;
+const int FIRMWARE_URL_ADDR = 460;
+const int REPO_ADDR = 590;
+const int FILE_ADDR = 640;
+const int GITHUB_TOKEN_ADDR = 690;
+const int BEFORE_IP_STRING_ADDR = 790;
+const int AFTER_IP_STRING_ADDR = 1790;
+const char* VERSION = "1.3";
 
 
 String ssid;
@@ -39,6 +42,8 @@ IPAddress subnet;
 IPAddress primaryDNS;
 IPAddress secondaryDNS;
 int port;
+
+String firmwareURL;
 
 String mode;
 
@@ -107,154 +112,197 @@ const byte DNS_PORT = 53;//DNS端口号
 IPAddress apIP(192, 168, 1, 1);//esp8266-AP-IP地址
 DNSServer dnsServer;//创建dnsServer实例
 ESP8266WebServer* configServer = new ESP8266WebServer(80);//创建WebServer
+ESP8266WebServer* esp8266_server = new ESP8266WebServer(80);
 
-void handleRoot() {//访问主页回调函数
-  configServer->send(200, "text/html", String("\
-<!DOCTYPE html>\r\n\
-<html lang='en'>\r\n\
-<head>\r\n\
-  <meta charset='UTF-8'>\r\n\
-  <meta name='viewport' content='width=device-width, initial-scale=1.0'>\r\n\
-  <title>Document</title>\r\n\
-</head>\r\n\
-<body>\r\n\
-  <form name='input' action='/' method='POST'>\r\n\
-        wifi名称: <br>\r\n\
-        <textarea type='text' name='ssid'>")+ssid+String("</textarea><br>\r\n\
-        wifi密码:<br>\r\n\
-        <textarea type='text' name='password'>")+password+String("</textarea><br>\r\n\
-        wifi连接模式(DHCP/STATIC): <br>\r\n\
-        <textarea type='text' name='wifiMode'>")+wifiMode+String("</textarea><br>\r\n\
-        静态IP:<br>\r\n\
-        <textarea type='text' name='localIp'>")+localIp.toString()+String("</textarea><br>\r\n\
-        网关: <br>\r\n\
-        <textarea type='text' name='gateway'>")+gateway.toString()+String("</textarea><br>\r\n\
-        子网掩码:<br>\r\n\
-        <textarea type='text' name='subnet'>")+subnet.toString()+String("</textarea><br>\r\n\
-        首选DNS: <br>\r\n\
-        <textarea type='text' name='primaryDNS'>")+primaryDNS.toString()+String("</textarea><br>\r\n\
-        备用DNS: <br>\r\n\
-        <textarea type='text' name='secondaryDNS'>")+secondaryDNS.toString()+String("</textarea><br>\r\n\
-        端口:<br>\r\n\
-        <textarea type='text' name='port'>")+port+String("</textarea><br>\r\n\
-        mode(github/ddns/off): <br>\r\n\
-        <textarea type='text' name='mode'>")+mode+String("</textarea><br>\r\n\
-        repo/zoneId:<br>\r\n\
-        <textarea type='text' name='repo'>")+repo+String("</textarea><br>\r\n\
-        file/dnsId:<br>\r\n\
-        <textarea type='text' name='file'>")+file+String("</textarea><br>\r\n\
-        githubToken/authEmail:<br>\r\n\
-        <textarea type='text' name='githubToken'>")+githubToken+String("</textarea><br>\r\n\
-        beforeIpString/authKey:<br>\r\n\
-        <textarea type='text' name='beforeIpString'>")+beforeIpString+String("</textarea><br>\r\n\
-        afterIpString/name:<br>\r\n\
-        <textarea type='text' name='afterIpString'>")+afterIpString+String("</textarea><br>\r\n\
-        <input type='submit' value='保存'>\r\n\
-    </form>\r\n\
-</body>\r\n\
-</html>\r\n\
-"));
+const char PAGE_CONFIG[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+  <title>ESP8266配网v%VERSION%</title>
+</head>
+<body>
+  <h2>v%VERSION%</h2>
+  <form name='input' action='/' method='POST'>
+    wifi名称:<br>
+    <input type='text' name='ssid' value='%SSID%'><br>
+    wifi密码:<br>
+    <input type='text' name='password' value='%PASSWORD%'><br>
+    wifi连接模式(DHCP/STATIC):<br>
+    <input type='text' name='wifiMode' value='%WIFIMODE%'><br>
+    静态IP:<br>
+    <input type='text' name='localIp' value='%LOCALIP%'><br>
+    网关:<br>
+    <input type='text' name='gateway' value='%GATEWAY%'><br>
+    子网掩码:<br>
+    <input type='text' name='subnet' value='%SUBNET%'><br>
+    首选DNS:<br>
+    <input type='text' name='primaryDNS' value='%PRIMARYDNS%'><br>
+    备用DNS:<br>
+    <input type='text' name='secondaryDNS' value='%SECONDARYDNS%'><br>
+    端口:<br>
+    <input type='text' name='port' value='%PORT%'><br>
+    固件更新地址:<br>
+    <input type='text' name='firmwareURL' value='%FIRMWAREURL%'><br>
+    mode(github/ddns/off):<br>
+    <input type='text' name='mode' value='%MODE%'><br>
+    repo/zoneId:<br>
+    <input type='text' name='repo' value='%REPO%'><br>
+    file/dnsId:<br>
+    <input type='text' name='file' value='%FILE%'><br>
+    githubToken/authEmail:<br>
+    <input type='text' name='githubToken' value='%GITHUBTOKEN%'><br>
+    beforeIpString/authKey:<br>
+    <input type='text' name='beforeIpString' value='%BEFOREIPSTRING%'><br>
+    afterIpString/name:<br>
+    <input type='text' name='afterIpString' value='%AFTERIPSTRING%'><br>
+    <br>
+    <input type='submit' value=%SAVE%>
+  </form>
+</body>
+</html>
+)rawliteral";
+
+String getBasicPage() {
+  String page = FPSTR(PAGE_CONFIG);
+  page.replace("%VERSION%", VERSION);
+  page.replace("%SSID%", ssid);
+  page.replace("%PASSWORD%", password);
+  page.replace("%WIFIMODE%", wifiMode);
+  page.replace("%LOCALIP%", localIp.toString());
+  page.replace("%GATEWAY%", gateway.toString());
+  page.replace("%SUBNET%", subnet.toString());
+  page.replace("%PRIMARYDNS%", primaryDNS.toString());
+  page.replace("%SECONDARYDNS%", secondaryDNS.toString());
+  page.replace("%PORT%", String(port));
+  page.replace("%FIRMWAREURL%", firmwareURL);
+  page.replace("%MODE%", mode);
+  page.replace("%REPO%", repo);
+  page.replace("%FILE%", file);
+  page.replace("%GITHUBTOKEN%", githubToken);
+  page.replace("%BEFOREIPSTRING%", beforeIpString);
+  page.replace("%AFTERIPSTRING%", afterIpString);
+  return page;
+}
+
+void handleRoot() {
+  String page = getBasicPage();
+  page.replace("%SAVE%", "'保存'");
+  configServer->send(200, "text/html", page);
 }
  
 void handleRootPost() {//Post回调函数
   Serial.println("handleRootPost");
-  if (configServer->hasArg("ssid")) {//判断是否有账号参数
-    Serial.print("got ssid:");
-    ssid = configServer->arg("ssid");
-    Serial.println(ssid);
+  ESP8266WebServer* server = (WiFi.status() == WL_CONNECTED)?esp8266_server:configServer;
+  if (server->hasArg("ssid")) {//判断是否有账号参数
+    //Serial.print("got ssid:");
+    ssid = server->arg("ssid");
+    //Serial.println(ssid);
   } else {//没有参数
     Serial.println("error, not found ssid");
-    configServer->send(200, "text/html", "<meta charset='UTF-8'>error, not found ssid");//返回错误页面
+    server->send(200, "text/html", "<meta charset='UTF-8'>error, not found ssid");//返回错误页面
     return;
   }
   //密码与账号同理
-  if (configServer->hasArg("password")) {
-    Serial.print("got password:");
-    password = configServer->arg("password");
-    Serial.println(password);
+  if (server->hasArg("password")) {
+    //Serial.print("got password:");
+    password = server->arg("password");
+    //Serial.println(password);
   } else {
-    Serial.println("error, not found password");
-    configServer->send(200, "text/html", "<meta charset='UTF-8'>error, not found password");
+    //Serial.println("error, not found password");
+    server->send(200, "text/html", "<meta charset='UTF-8'>error, not found password");
     return;
   }
 
-  if(configServer->hasArg("wifiMode")) {
-    Serial.print("got wifiMode:");
-    wifiMode = configServer->arg("wifiMode");
-    Serial.println(wifiMode);
+  if(server->hasArg("wifiMode")) {
+    //Serial.print("got wifiMode:");
+    wifiMode = server->arg("wifiMode");
+    //Serial.println(wifiMode);
   }
   IPAddress ip;
-  if(configServer->hasArg("localIp")&&parseIPSafe(configServer->arg("localIp"),ip)) {
-    Serial.print("got localIp:");
+  if(server->hasArg("localIp")&&parseIPSafe(server->arg("localIp"),ip)) {
+    //Serial.print("got localIp:");
     localIp = ip;
-    Serial.println(localIp.toString());
+    //Serial.println(localIp.toString());
   }
-  if(configServer->hasArg("gateway")&&parseIPSafe(configServer->arg("gateway"),ip)) {
-    Serial.print("got gateway:");
+  if(server->hasArg("gateway")&&parseIPSafe(server->arg("gateway"),ip)) {
+    //Serial.print("got gateway:");
     gateway = ip;
-    Serial.println(gateway.toString());
+    //Serial.println(gateway.toString());
   }
-  if(configServer->hasArg("subnet")&&parseIPSafe(configServer->arg("subnet"),ip)) {
-    Serial.print("got subnet:");
+  if(server->hasArg("subnet")&&parseIPSafe(server->arg("subnet"),ip)) {
+    //Serial.print("got subnet:");
     subnet = ip;
-    Serial.println(subnet.toString());
+    //Serial.println(subnet.toString());
   }
-  if(configServer->hasArg("primaryDNS")&&parseIPSafe(configServer->arg("primaryDNS"),ip)) {
-    Serial.print("got primaryDNS:");
+  if(server->hasArg("primaryDNS")&&parseIPSafe(server->arg("primaryDNS"),ip)) {
+    //Serial.print("got primaryDNS:");
     primaryDNS = ip;
-    Serial.println(primaryDNS.toString());
+    //Serial.println(primaryDNS.toString());
   }
-  if(configServer->hasArg("secondaryDNS")&&parseIPSafe(configServer->arg("secondaryDNS"),ip)) {
-    Serial.print("got secondaryDNS:");
+  if(server->hasArg("secondaryDNS")&&parseIPSafe(server->arg("secondaryDNS"),ip)) {
+    //Serial.print("got secondaryDNS:");
     secondaryDNS = ip;
-    Serial.println(secondaryDNS.toString());
+    //Serial.println(secondaryDNS.toString());
   }
 
 
-  if(configServer->hasArg("port")) {
-    Serial.print("got port:");
-    port = configServer->arg("port").toInt();
-    Serial.println(port);
+  if(server->hasArg("port")) {
+    //Serial.print("got port:");
+    port = server->arg("port").toInt();
+    //Serial.println(port);
   }
 
 
-  if(configServer->hasArg("mode")) {
-    Serial.print("got mode:");
-    mode = configServer->arg("mode");
-    Serial.println(mode);
+  if(server->hasArg("firmwareURL")) {
+    //Serial.print("got firmwareURL:");
+    firmwareURL = server->arg("firmwareURL");
+    //Serial.println(firmwareURL);
   }
 
 
-  if (configServer->hasArg("repo")) {
-    Serial.print("got repo:");
-    repo = configServer->arg("repo");
-    Serial.println(repo);
+  if(server->hasArg("mode")) {
+    //Serial.print("got mode:");
+    mode = server->arg("mode");
+    //Serial.println(mode);
   }
-  if (configServer->hasArg("file")) {
-    Serial.print("got file:");
-    file = configServer->arg("file");
-    Serial.println(file);
+
+
+  if (server->hasArg("repo")) {
+    //Serial.print("got repo:");
+    repo = server->arg("repo");
+    //Serial.println(repo);
   }
-  if (configServer->hasArg("githubToken")) {
-    Serial.print("got githubToken:");
-    githubToken = configServer->arg("githubToken");
-    Serial.println(githubToken);
+  if (server->hasArg("file")) {
+    //Serial.print("got file:");
+    file = server->arg("file");
+    //Serial.println(file);
   }
-  if (configServer->hasArg("beforeIpString")) {
-    Serial.print("got beforeIpString:");
-    beforeIpString = configServer->arg("beforeIpString");
-    Serial.println(beforeIpString);
+  if (server->hasArg("githubToken")) {
+    //Serial.print("got githubToken:");
+    githubToken = server->arg("githubToken");
+    //Serial.println(githubToken);
   }
-  if (configServer->hasArg("afterIpString")) {
-    Serial.print("got afterIpString:");
-    afterIpString = configServer->arg("afterIpString");
-    Serial.println(afterIpString);
+  if (server->hasArg("beforeIpString")) {
+    //Serial.print("got beforeIpString:");
+    beforeIpString = server->arg("beforeIpString");
+    //Serial.println(beforeIpString);
+  }
+  if (server->hasArg("afterIpString")) {
+    //Serial.print("got afterIpString:");
+    afterIpString = server->arg("afterIpString");
+    //Serial.println(afterIpString);
   }
   saveData();
-  configServer->send(200, "text/html", "<meta charset='UTF-8'>保存成功");//返回保存成功页面
-  delay(500);
+  server->send(200, "text/html", "<meta charset='UTF-8'>保存成功，正在启动");//返回保存成功页面
+  delay(1000);
   //连接wifi
-  connectNewWiFi();
+  if (WiFi.status() != WL_CONNECTED) {
+    connectNewWiFi();
+    return;
+  }
+  ESP.restart();
 }
 
 bool parseIPSafe(const String& ipStr, IPAddress& outIP) {
@@ -330,13 +378,14 @@ void readData() {
   primaryDNS = readIPAddress(PRIMARY_DNS_ADDR);
   secondaryDNS = readIPAddress(SECONDARY_DNS_ADDR);
   port = readString(PORT_ADDR).toInt();
+  firmwareURL = readString(FIRMWARE_URL_ADDR);
   mode = readString(MODE_ADDR);
   repo = readString(REPO_ADDR);
   file = readString(FILE_ADDR);
   githubToken = readString(GITHUB_TOKEN_ADDR);
   beforeIpString = readString(BEFORE_IP_STRING_ADDR);
   afterIpString = readString(AFTER_IP_STRING_ADDR);
-  Serial.println(ssid);
+  /*Serial.println(ssid);
   Serial.println(password);
   Serial.println(wifiMode);
   Serial.println(localIp.toString());
@@ -345,12 +394,13 @@ void readData() {
   Serial.println(primaryDNS.toString());
   Serial.println(secondaryDNS.toString());
   Serial.println(port);
+  Serial.println(firmwareURL);
   Serial.println(mode);
   Serial.println(repo);
   Serial.println(file);
   Serial.println(githubToken);
   Serial.println(beforeIpString);
-  Serial.println(afterIpString);
+  Serial.println(afterIpString);*/
 }
 
 void saveData() {
@@ -363,6 +413,7 @@ void saveData() {
   writeIPAddress(primaryDNS, PRIMARY_DNS_ADDR);
   writeIPAddress(secondaryDNS, SECONDARY_DNS_ADDR);
   writeString(String(port), PORT_ADDR);
+  writeString(firmwareURL, FIRMWARE_URL_ADDR);
   writeString(mode, MODE_ADDR);
   writeString(repo, REPO_ADDR);
   writeString(file, FILE_ADDR);
@@ -405,14 +456,14 @@ void initConfigServer(void){
   configServer->onNotFound(handleRoot);//设置无法响应的http请求的回调函数
   configServer->on("/", HTTP_POST, handleRootPost);//设置Post请求回调函数
   configServer->begin();//启动WebServer
-  Serial.println("WebServer started!");
+  //Serial.println("WebServer started!");
 }
  
 void initDNS(void){//初始化DNS服务器
   if(dnsServer.start(DNS_PORT, "*", apIP)){//判断将所有地址映射到esp8266的ip上是否成功
-    Serial.println("start dnsserver success.");
+    //Serial.println("start dnsserver success.");
   }
-  else Serial.println("start dnsserver failed.");
+  //else Serial.println("start dnsserver failed.");
 }
 
 void connectNewWiFi(){
@@ -424,8 +475,8 @@ void connectNewWiFi(){
     WiFi.config(0U, 0U, 0U);
   }
   WiFi.begin(ssid, password);
-  Serial.println("");
-  Serial.print("Connect to wifi");
+  //Serial.println("");
+  //Serial.print("Connect to wifi");
   int count = 0;
   while (WiFi.status() != WL_CONNECTED) {
     delay(1000);
@@ -436,13 +487,13 @@ void connectNewWiFi(){
       initDNS();
       break;//跳出 防止无限初始化
     }
-    Serial.print(".");
+    //Serial.print(".");
   }
-  Serial.println("");
+  //Serial.println("");
   if(WiFi.status() == WL_CONNECTED){//如果连接上 就输出IP信息 防止未连接上break后会误输出
     connectedWiFi = true;
-    Serial.println("WIFI Connected!");
-    Serial.print("IP address: ");
+    //Serial.println("WIFI Connected!");
+    //Serial.print("IP address: ");
     Serial.println(WiFi.localIP());//打印esp8266的IP地址
     if (configServer != nullptr) {
       configServer->stop();
@@ -453,7 +504,6 @@ void connectNewWiFi(){
     initServer();
   }
 }
-ESP8266WebServer* esp8266_server = new ESP8266WebServer(80);
 bool lastSuccess = false;
 String lastIp = "";
 
@@ -468,12 +518,12 @@ void updateFile(String content, String sha) {
   int httpResponseCode = http.PUT("{\"message\":\"message\",\"content\":\""+base64::encode(content)+"\",\"sha\":\""+sha+"\"}");   
   if (httpResponseCode>0) {
     String response = http.getString();   
-    Serial.println(httpResponseCode);
-    Serial.println(response);
+    //Serial.println(httpResponseCode);
+    //Serial.println(response);
     lastSuccess = true;
    } else {
-    Serial.print("Error on sending PUT Request: ");
-    Serial.println(httpResponseCode);
+    //Serial.print("Error on sending PUT Request: ");
+    //Serial.println(httpResponseCode);
     lastSuccess = false;
    }
    http.end();
@@ -490,23 +540,23 @@ String getSha() {
   int httpResponseCode = http.GET();   
   if (httpResponseCode>0) {
     String response = http.getString();   
-    Serial.println(httpResponseCode);
-    Serial.println(response);
+    //Serial.println(httpResponseCode);
+    //Serial.println(response);
     http.end();
     StaticJsonDocument<200> jsonBuffer; //声明一个JsonDocument对象，长度200
     // 反序列化JSON
     DeserializationError error = deserializeJson(jsonBuffer, response);
     if (error) {
-      Serial.print(F("deserializeJson() failed: "));
-      Serial.println(error.f_str());
+      //Serial.print(F("deserializeJson() failed: "));
+      //Serial.println(error.f_str());
       return "";
     }
     String str = jsonBuffer["sha"];
     Serial.println(str);
     return str;
   } else {
-    Serial.print("Error on sending GET Request: ");
-    Serial.println(httpResponseCode);
+    //Serial.print("Error on sending GET Request: ");
+    //Serial.println(httpResponseCode);
   }
   http.end();
   return "";
@@ -524,23 +574,23 @@ bool checkNeedUpdate(String content) {
   int httpResponseCode = http.GET();   
   if (httpResponseCode>0) {
     String response = http.getString();   
-    Serial.println(httpResponseCode);
-    Serial.println(response);
+    //Serial.println(httpResponseCode);
+    //Serial.println(response);
     http.end();
     StaticJsonDocument<200> jsonBuffer; //声明一个JsonDocument对象，长度200
     // 反序列化JSON
     DeserializationError error = deserializeJson(jsonBuffer, response);
     if (error) {
-      Serial.print(F("deserializeJson() failed: "));
-      Serial.println(error.f_str());
+      //Serial.print(F("deserializeJson() failed: "));
+      //Serial.println(error.f_str());
       return true;
     }
     String str = jsonBuffer["content"];
-    Serial.println(content);
+    //Serial.println(content);
     str.replace("\n", "");
-    Serial.println(str);
-    Serial.println(base64::encode(content));
-    Serial.println(str.compareTo(base64::encode(content)));
+    //Serial.println(str);
+    //Serial.println(base64::encode(content));
+    //Serial.println(str.compareTo(base64::encode(content)));
     return str.compareTo(base64::encode(content))!=0;
   } else {
     Serial.print("Error on sending GET Request: ");
@@ -556,21 +606,21 @@ void updateDns(String ipv6) {
   HTTPClient http;
   String body = "{\"type\":\"AAAA\",\"name\":\""+afterIpString+"\",\"content\":\"" + ipv6 + "\",\"ttl\":60,\"proxied\":false}";
   http.begin(client, "https://api.cloudflare.com/client/v4/zones/"+repo+"/dns_records/"+file);
-  Serial.println("https://api.cloudflare.com/client/v4/zones/"+repo+"/dns_records/"+file);
+  //Serial.println("https://api.cloudflare.com/client/v4/zones/"+repo+"/dns_records/"+file);
   http.addHeader("Content-Type", "application/json");
   http.addHeader("X-Auth-Email", githubToken);
   http.addHeader("X-Auth-Key", beforeIpString);
   int httpResponseCode = http.PUT(body);   
   if (httpResponseCode>0) {
     String response = http.getString();   
-    Serial.println(httpResponseCode);
-    Serial.println(response);
+    //Serial.println(httpResponseCode);
+    //Serial.println(response);
     lastSuccess = true;
     http.end();
     return;
   } else {
-    Serial.print("Error on sending PUT Request: ");
-    Serial.println(httpResponseCode);
+    //Serial.print("Error on sending PUT Request: ");
+    //Serial.println(httpResponseCode);
     lastSuccess = false;
   }
   http.end();
@@ -579,7 +629,7 @@ void updateDns(String ipv6) {
 int lastMillis = -100000;
 
 void updateIp() {
-  if(mode.compareTo("off")==0) {
+  if(mode.compareTo("github")!=0&&mode.compareTo("ddns")!=0) {
     return;
   }
   if(WiFi.status() != WL_CONNECTED) {
@@ -589,32 +639,59 @@ void updateIp() {
     return;
   }
   lastMillis = millis();
-  Serial.println("Update IP");
-  Serial.println(ESP.getFullVersion());
-  Serial.print("Free heap: ");
-  Serial.println(ESP.getFreeHeap());
+  //Serial.println("Update IP");
+  //Serial.println(ESP.getFullVersion());
+  //Serial.print("Free heap: ");
+  //Serial.println(ESP.getFreeHeap());
   for (auto a : addrList) {
-    Serial.println(a.isV6());
-    Serial.println(a.toString().startsWith("2"));
-    Serial.println(a.toString().c_str());
+    //Serial.println(a.isV6());
+    //Serial.println(a.toString().startsWith("2"));
+    //Serial.println(a.toString().c_str());
     if(a.isV6() && a.toString().startsWith("2")) {
       if(a.toString().compareTo(lastIp)==0 && lastSuccess) {
         break;
       }
       lastIp = a.toString();
-      if(mode.compareTo("github")!=0) {
+      if(mode.compareTo("ddns")==0) {
         updateDns(a.toString());
         break;
       }
       if(checkNeedUpdate(beforeIpString+a.toString()+afterIpString)) {
-        Serial.println("NEED UPDATE");
+        //Serial.println("NEED UPDATE");
         updateFile(beforeIpString+a.toString()+afterIpString, getSha());
         break;
       }
-      Serial.println("DO NOT NEED UPDATE");
+      //Serial.println("DO NOT NEED UPDATE");
       break;
     }
   }
+}
+
+void onStart() {
+  EEPROMr.rotate(false);
+  EEPROMr.commit();
+}
+
+void updateFirmware() {
+  Serial.printf("Free sketch space: %u bytes\n", ESP.getFreeSketchSpace());
+  Serial.printf("Sketch size: %u bytes\n", ESP.getSketchSize());
+  ESPhttpUpdate.onStart(onStart);
+  ESPhttpUpdate.rebootOnUpdate(false); // 我们手动控制重启
+  WiFiClient client;
+  t_httpUpdate_return ret = ESPhttpUpdate.update(client, firmwareURL);
+
+  if(ret == HTTP_UPDATE_OK){
+    Serial.println("Update written. Restarting...");
+    delay(500);
+    ESP.restart();
+    return;
+  } else if(ret == HTTP_UPDATE_NO_UPDATES){
+    Serial.println("No updates.");
+  } else {
+    Serial.printf("Update failed: %s\n", ESPhttpUpdate.getLastErrorString().c_str());
+  }
+  client.stop();
+  EEPROMr.rotate(true);
 }
 
 void handleWake() {
@@ -673,11 +750,25 @@ void handleToggle() {
   esp8266_server->send(200, "text/html", "<meta charset='UTF-8'>"+String(toggled));
 }
 
+void handleUpdate() {
+  Serial.println("handleUpdate");
+  esp8266_server->send(200, "text/html", "<meta charset='UTF-8'>自动检测更新中请稍后");
+  delay(1000);
+  updateFirmware();
+}
+
+void handleConfig() {
+  Serial.println("handleConfig");
+  String page = getBasicPage();
+  page.replace("%SAVE%", "'保存并重启'><button type='button' onclick='history.back()'>返回</button");
+  esp8266_server->send(200, "text/html", page);
+}
+
 void handleReset() {
   Serial.println("handleReset");
   connectedWiFi = false;
   esp8266_server->send(200, "text/html", "<meta charset='UTF-8'>ok");
-  delay(500);
+  delay(1000);
   esp8266_server->stop();
   WiFi.disconnect(true);
   initSoftAP();
@@ -685,92 +776,107 @@ void handleReset() {
   initDNS();
 }
 
+const char index_html[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+<title>远程唤醒&远程开关&远程ping v%VERSION%</title>
+</head>
+<body>
+<h2>v%VERSION%</h2>
+<div>
+  <input id="wakeText" />
+  <button onclick="wake()">唤醒</button>
+</div>
+<div>
+  <t id="status-close" style="color: red%DISPLAY1%">关闭</t>
+  <t id="status-open" style="color: green%DISPLAY2%">开启</t>
+  <button onclick="toggle()">开启/关闭开关</button>
+</div>
+<div>
+  <input id="pingText" />
+  <button onclick="ping()">Ping</button>
+  <t id="status-failed" style="color: red; display: none;">失败</t>
+  <t id="status-success" style="color: green; display: none;">成功</t>
+</div>
+<button onclick="location.href='config'">配置参数</button>
+<button onclick="window.open('update', '_blank')">固件更新</button>
+<button onclick="window.open('reset', '_blank')">RESET进入配网模式</button>
+<script>
+  let baseUrl = "";
+
+  function macAddressToIntArray(macAddress) {
+    let hexArray = macAddress.match(/[0-9a-fA-F]{2}/g);
+    let intArray = hexArray.map(hex => parseInt(hex, 16));
+    return intArray;
+  }
+
+  function wake() {
+    var mac = document.getElementById("wakeText").value.replace(/[-:]/g, '');
+    console.info(mac);
+    var m = macAddressToIntArray(mac);
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', baseUrl + "wake?ip=255.255.255.255&port=9&mac_1=" + m[0] + "&mac_2=" + m[1] + "&mac_3=" + m[2] + "&mac_4=" + m[3] + "&mac_5=" + m[4] + "&mac_6=" + m[5], true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        console.log(xhr.responseText);
+      }
+    };
+    xhr.send();
+  }
+
+  function toggle() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', baseUrl + "toggle", true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        console.log(xhr.responseText);
+        if(xhr.responseText.indexOf('0') != -1) {
+          document.getElementById("status-close").style.display = 'unset';
+          document.getElementById("status-open").style.display = 'none';
+        } else {
+          document.getElementById("status-close").style.display = 'none';
+          document.getElementById("status-open").style.display = 'unset';
+        }
+      }
+    };
+    xhr.send();
+  }
+
+  function ping() {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', baseUrl + "ping?ip=" + document.getElementById("pingText").value, true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState === 4 && xhr.status === 200) {
+        console.log(xhr.responseText);
+        if(xhr.responseText.indexOf('false') != -1) {
+          document.getElementById("status-failed").style.display = 'unset';
+          document.getElementById("status-success").style.display = 'none';
+        } else {
+          document.getElementById("status-failed").style.display = 'none';
+          document.getElementById("status-success").style.display = 'unset';
+        }
+      }
+    };
+    xhr.send();
+  }
+
+  function hexToDecimal(hexString) {
+    return parseInt(hexString, 16);
+  }
+</script>
+</body>
+</html>
+)rawliteral";
+
 void handleTemplate() {
-  esp8266_server->send(200, "text/html", String("<!DOCTYPE html>\n") +
-                "<html lang='en'>\n" +
-                "<head>\n" +
-                "    <meta charset='UTF-8'>\n" +
-                "    <meta name='viewport' content='width=device-width, initial-scale=1.0'>\n" +
-                "    <title>远程唤醒&远程开关&远程ping</title>\n" +
-                "</head>\n" +
-                "<body>\n" +
-                "    <div>\n" +
-                "        <input id=\"wakeText\">\n" +
-                "    \n" +
-                "        </input>\n" +
-                "        <button onclick=\"wake()\">唤醒</button>\n" +
-                "    </div>\n" +
-                "    <div>\n" +
-                "        <t id=\"status-close\" style=\"color: red"+(toggled?";display: none":"")+"\">关闭</t>\n" +
-                "        <t id=\"status-open\" style=\"color: green"+(toggled?"":";display: none")+"\">开启</t>\n" +
-                "        <button onclick=\"toggle()\">开启/关闭开关</button>\n" +
-                "    </div>\n" +
-                "    <div>\n" +
-                "        <input id=\"pingText\"/>\n" +
-                "        <button onclick=\"ping()\">Ping</button>\n" +
-                "        <t id=\"status-failed\" style=\"color: red;display: none;\">失败</t>\n" +
-                "        <t id=\"status-success\" style=\"color: green;display: none;\">成功</t>\n" +
-                "    </div>\n" +
-                "    <button onclick=\"location.href='reset'\">RESET进入配网模式</buttton>\n" +
-                "    <script>\n" +
-                "        let baseUrl = \"\"\n" +
-                "        function macAddressToIntArray(macAddress) {\n" +
-                "            let hexArray = macAddress.match(/[0-9a-fA-F]{2}/g);\n" +
-                "            let intArray = hexArray.map(hex => parseInt(hex, 16));\n" +
-                "            return intArray;\n" +
-                "        }\n" +
-                "        function wake() {\n" +
-                "            var mac = document.getElementById(\"wakeText\").value.replaceAll('-', '').replaceAll(':', '');\n" +
-                "            console.info(mac);\n" +
-                "            var m = macAddressToIntArray(mac);\n" +
-                "            var xhr = new XMLHttpRequest();\n" +
-                "            xhr.open('GET', baseUrl+\"wake?ip=255.255.255.255&port=9&mac_1=\"+m[0]+\"&mac_2=\"+m[1]+\"&mac_3=\"+m[2]+\"&mac_4=\"+m[3]+\"&mac_5=\"+m[4]+\"&mac_6=\"+m[5], true);\n" +
-                "            xhr.onreadystatechange = function() {\n" +
-                "                if (xhr.readyState === 4 && xhr.status === 200) {\n" +
-                "                    console.log(xhr.responseText);\n" +
-                "                }\n" +
-                "            };\n" +
-                "            xhr.send();\n" +
-                "        }\n" +
-                "        function toggle() {\n" +
-                "            var xhr = new XMLHttpRequest();\n" +
-                "            xhr.open('GET', baseUrl+\"toggle\", true);\n" +
-                "            xhr.onreadystatechange = function() {\n" +
-                "                if (xhr.readyState === 4 && xhr.status === 200) {\n" +
-                "                    console.log(xhr.responseText);\n" +
-                "                    if(xhr.responseText.indexOf('0')!=-1) {\n" +
-                "                        document.getElementById(\"status-close\").style.display = 'unset';\n" +
-                "                        document.getElementById(\"status-open\").style.display = 'none';\n" +
-                "                    } else {\n" +
-                "                        document.getElementById(\"status-close\").style.display = 'none';\n" +
-                "                        document.getElementById(\"status-open\").style.display = 'unset';\n" +
-                "                    }\n" +
-                "                }\n" +
-                "            };\n" +
-                "            xhr.send();\n" +
-                "        }\n" +
-                "        function ping() {\n" +
-                "            var xhr = new XMLHttpRequest();\n" +
-                "            xhr.open('GET', baseUrl+\"ping?ip=\"+document.getElementById(\"pingText\").value, true);\n" +
-                "            xhr.onreadystatechange = function() {\n" +
-                "                if (xhr.readyState === 4 && xhr.status === 200) {\n" +
-                "                    console.log(xhr.responseText);\n" +
-                "                    if(xhr.responseText.indexOf('false')!=-1) {\n" +
-                "                        document.getElementById(\"status-failed\").style.display = 'unset';\n" +
-                "                        document.getElementById(\"status-success\").style.display = 'none';\n" +
-                "                    } else {\n" +
-                "                        document.getElementById(\"status-failed\").style.display = 'none';\n" +
-                "                        document.getElementById(\"status-success\").style.display = 'unset';\n" +
-                "                    }\n" +
-                "                }\n" +
-                "            };\n" +
-                "            xhr.send();\n" +
-                "        }\n" +
-                "        function hexToDecimal(hexString) {\n" +
-                "    return parseInt(hexString, 16);\n" +
-                "}\n" +
-                "    </script>\n" +
-                "</body>");
+  String html = String(index_html);
+  html.replace("%VERSION%", String(VERSION));
+  html.replace("%DISPLAY1%", (toggled?";display: none":""));
+  html.replace("%DISPLAY2%", (toggled?"":";display: none"));
+  esp8266_server->send(200, "text/html", html);
 }
 
 void initServer() {
@@ -781,8 +887,11 @@ void initServer() {
   esp8266_server->on("/ping", HTTP_GET, handlePing);
   esp8266_server->on("/status", HTTP_GET, handleStatus);
   esp8266_server->on("/toggle", HTTP_GET, handleToggle);
+  esp8266_server->on("/update", HTTP_GET, handleUpdate);
+  esp8266_server->on("/config", HTTP_GET, handleConfig);
   esp8266_server->on("/reset", HTTP_GET, handleReset);
   esp8266_server->on("/", HTTP_GET, handleTemplate);
+  esp8266_server->on("/", HTTP_POST, handleRootPost);
   esp8266_server->begin();
 }
 
@@ -802,7 +911,7 @@ void loop() {
   updateIp();
   if(WiFi.status() != WL_CONNECTED && connectedWiFi && firstConnected){
     connectedWiFi = false;
-    Serial.println("WIFI Disconnected!");
+    //Serial.println("WIFI Disconnected!");
     esp8266_server->stop();
     connectNewWiFi();
   }

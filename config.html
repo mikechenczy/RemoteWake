@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+  <title>ESP8266配网v%VERSION%</title>
+</head>
+<body>
+  <h2>v%VERSION%</h2>
+  <form name='input' action='/' method='POST'>
+    wifi名称:<br>
+    <input type='text' name='ssid' value='%SSID%'><br>
+    wifi密码:<br>
+    <input type='text' name='password' value='%PASSWORD%'><br>
+    wifi连接模式(DHCP/STATIC):<br>
+    <input type='text' name='wifiMode' value='%WIFIMODE%'><br>
+    静态IP:<br>
+    <input type='text' name='localIp' value='%LOCALIP%'><br>
+    网关:<br>
+    <input type='text' name='gateway' value='%GATEWAY%'><br>
+    子网掩码:<br>
+    <input type='text' name='subnet' value='%SUBNET%'><br>
+    首选DNS:<br>
+    <input type='text' name='primaryDNS' value='%PRIMARYDNS%'><br>
+    备用DNS:<br>
+    <input type='text' name='secondaryDNS' value='%SECONDARYDNS%'><br>
+    端口:<br>
+    <input type='text' name='port' value='%PORT%'><br>
+    固件更新地址:<br>
+    <input type='text' name='firmwareURL' value='%FIRMWAREURL%'><br>
+    mode(github/ddns/off):<br>
+    <input type='text' name='mode' value='%MODE%'><br>
+    repo/zoneId:<br>
+    <input type='text' name='repo' value='%REPO%'><br>
+    file/dnsId:<br>
+    <input type='text' name='file' value='%FILE%'><br>
+    githubToken/authEmail:<br>
+    <input type='text' name='githubToken' value='%GITHUBTOKEN%'><br>
+    beforeIpString/authKey:<br>
+    <input type='text' name='beforeIpString' value='%BEFOREIPSTRING%'><br>
+    afterIpString/name:<br>
+    <input type='text' name='afterIpString' value='%AFTERIPSTRING%'><br>
+    <br>
+    <input type='submit' value=%SAVE%>
+  </form>
+</body>
+</html>
