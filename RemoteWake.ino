@@ -791,16 +791,18 @@ const char index_html[] PROGMEM = R"rawliteral(
   <button onclick="wake()">唤醒</button>
 </div>
 <div>
-  <t id="status-close" style="color: red%DISPLAY1%">关闭</t>
-  <t id="status-open" style="color: green%DISPLAY2%">开启</t>
-  <button onclick="toggle()">开启/关闭开关</button>
-</div>
-<div>
   <input id="pingText" />
   <button onclick="ping()">Ping</button>
   <t id="status-failed" style="color: red; display: none;">失败</t>
   <t id="status-success" style="color: green; display: none;">成功</t>
 </div>
+<br>
+<div>
+  <t id="status-close" style="color: red%DISPLAY1%">关闭</t>
+  <t id="status-open" style="color: green%DISPLAY2%">开启</t>
+  <button onclick="toggle()">开启/关闭开关</button>
+</div>
+<br>
 <button onclick="location.href='config'">配置参数</button>
 <button onclick="window.open('update', '_blank')">固件更新</button>
 <button onclick="window.open('reset', '_blank')">RESET进入配网模式</button>
