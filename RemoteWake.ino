@@ -30,7 +30,7 @@ const int FILE_ADDR = 640;
 const int GITHUB_TOKEN_ADDR = 690;
 const int BEFORE_IP_STRING_ADDR = 790;
 const int AFTER_IP_STRING_ADDR = 1790;
-const char* VERSION = "1.3";
+const char* VERSION = "Wake-v1.4";
 
 
 String ssid;
@@ -120,10 +120,10 @@ const char PAGE_CONFIG[] PROGMEM = R"rawliteral(
 <head>
   <meta charset='UTF-8'>
   <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-  <title>ESP8266配网v%VERSION%</title>
+  <title>ESP8266配网%VERSION%</title>
 </head>
 <body>
-  <h2>v%VERSION%</h2>
+  <h2>%VERSION%</h2>
   <form name='input' action='/' method='POST'>
     wifi名称:<br>
     <input type='text' name='ssid' value='%SSID%'><br>
@@ -782,10 +782,10 @@ const char index_html[] PROGMEM = R"rawliteral(
 <head>
 <meta charset='UTF-8'>
 <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-<title>远程唤醒&远程开关&远程ping v%VERSION%</title>
+<title>远程唤醒&远程开关&远程ping %VERSION%</title>
 </head>
 <body>
-<h2>v%VERSION%</h2>
+<h2>%VERSION%</h2>
 <div>
   <input id="wakeText" />
   <button onclick="wake()">唤醒</button>
