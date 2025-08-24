@@ -11,6 +11,12 @@
 #include <base64.h>
 #include <ArduinoJson.h>
 #include <EEPROM_Rotate.h>
+#include <DHT.h>
+
+#define DHTPIN 2     // Digital pin connected to DHT11
+#define DHTTYPE DHT11 // DHT 11
+
+DHT dht(DHTPIN, DHTTYPE);
 
 EEPROM_Rotate EEPROMr;
 
@@ -30,7 +36,7 @@ const int FILE_ADDR = 640;
 const int GITHUB_TOKEN_ADDR = 690;
 const int BEFORE_IP_STRING_ADDR = 790;
 const int AFTER_IP_STRING_ADDR = 1790;
-const char* VERSION = "Wake-v1.4";
+const char* VERSION = "Wake-v1.5";
 
 
 String ssid;
@@ -424,6 +430,7 @@ void saveData() {
 
 void initBasic(){//初始化基础
   Serial.begin(115200);
+  dht.begin();
   delay(2000);
   EEPROMr.size(2);
   EEPROMr.begin(4096);
@@ -776,6 +783,11 @@ void handleReset() {
   initDNS();
 }
 
+void handleSensor() {
+  Serial.println("handleSensor");
+  esp8266_server->send(200, "text/html", "<meta charset='UTF-8'>"+String(dht.readHumidity())+" "+String(dht.readTemperature()));
+}
+
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang='en'>
@@ -892,6 +904,7 @@ void initServer() {
   esp8266_server->on("/update", HTTP_GET, handleUpdate);
   esp8266_server->on("/config", HTTP_GET, handleConfig);
   esp8266_server->on("/reset", HTTP_GET, handleReset);
+  esp8266_server->on("/sensor", HTTP_GET, handleSensor);
   esp8266_server->on("/", HTTP_GET, handleTemplate);
   esp8266_server->on("/", HTTP_POST, handleRootPost);
   esp8266_server->begin();
